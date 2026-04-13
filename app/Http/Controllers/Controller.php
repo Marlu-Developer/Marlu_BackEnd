@@ -11,8 +11,12 @@ class Controller extends BaseController
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
-    // Validate token
+    // Validate token (frontend sends `Authorization: Bearer <jwt>`)
     public function validateToken($token) {
+        if (is_string($token) && strncmp($token, 'Bearer ', 7) === 0) {
+            $token = substr($token, 7);
+        }
+
         $tmp = explode('.', $token);
 
         if (count($tmp) < 2) {

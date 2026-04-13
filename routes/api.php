@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Employees\EmployeesController;
+use App\Http\Controllers\Sales\SalesDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,4 +31,13 @@ Route::controller(LoginController::class)->group(function () {
 // Employees Routes
 Route::controller(EmployeesController::class)->group(function () {
     Route::get('employees/get', 'getEmployees')->name('employees.get');
+    Route::post('employees/create', 'createEmployee')->name('employees.create');
+    Route::post('uploadPdf', 'uploadPdf')->name('employees.upload-pdf');
+});
+
+// Sales Routes
+Route::controller(SalesDashboardController::class)->group(function () {
+    Route::get('sales/dashboard', 'getDashboard')->name('sales.dashboard');
+    Route::get('sales/dashboard/export', 'exportDashboard')->name('sales.dashboard.export');
+    Route::post('sales/dashboard/assign-setter', 'assignSetter')->name('sales.dashboard.assign-setter');
 });
