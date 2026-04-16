@@ -40,4 +40,5 @@ Route::controller(SalesDashboardController::class)->group(function () {
     Route::get('sales/dashboard', 'getDashboard')->name('sales.dashboard');
     Route::get('sales/dashboard/export', 'exportDashboard')->name('sales.dashboard.export');
     Route::post('sales/dashboard/assign-setter', 'assignSetter')->name('sales.dashboard.assign-setter');
+    Route::post('sales/dashboard/bulk-action', 'bulkAction')->name('sales.dashboard.bulk-action');
 });

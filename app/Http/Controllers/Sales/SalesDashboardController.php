@@ -12,6 +12,181 @@ use MongoDB\BSON\ObjectId;
  */
 class SalesDashboardController extends Controller
 {
+    /**
+     * Same field coverage as marluapp `sales-view` grid (nested docs loaded by key).
+     *
+     * @var string[]
+     */
+    private const DASHBOARD_LIST_FIELDS = [
+        '_id',
+        'Phone_Flag',
+        'JobCollection_Customer_Full_Name',
+        'JobCollection_Customer_Phone',
+        'JobCollection_Brand',
+        'JobCollection_Reception_Date',
+        'JobCollection_Customer_Message',
+        'JobCollection_Customer_Image_Link',
+        'JobCollection_Job_Stage',
+        'JobCollection_Job_Status',
+        'JobCollection_Job_Substatus',
+        'JobCollection_Job_Last_Update',
+        'JobCollection_Job_Last_Update_User',
+        'JobCollection_Audio_Data',
+        'JobCollection_Setter_Comments',
+        'JobCollection_Closer_Comments',
+        'JobCollection_Office_Comments',
+        'JobCollection_Estimate_Scheduling_Start_TimeZulu',
+        'JobCollection_Follow_up_Boolean',
+        'JobCollection_Assigned_Follow_Up',
+        'JobCollection_Follow_up_Date',
+        'JobCollection_Job_Setter_Full_Name',
+        'JobCollection_Estimate_Schedule_Calendar',
+        'JobCollection_Job_Closer_Full_Name',
+        'JobCollection_Job_Admin_Full_Name',
+        'JobCollection_Estimate',
+        'JobCollection_Estimate_Price',
+        'JobCollection_Job',
+        'JobCollection_Job_Admin_Assigned_Date',
+        'JobCollection_Sell_Date',
+        'JobCollection_Jobs_Date',
+        'JobCollection_Estimate_Type',
+        'JobCollection_Estimate_Condition',
+        'JobCollection_Estimate_Scheduling_Creation_Date',
+        'JobCollection_Estimate_Status',
+        'JobCollection_Customer_Type',
+        'JobCollection_Deposit_Collection_Boolean',
+        'JobCollection_Deposit_Collected_User',
+        'JobCollection_Deposit_Collection_Date',
+        'JobCollection_Deposit_Payment_Method',
+        'JobCollection_Deposit_Amount',
+        'JobCollection_Customer_Email',
+        'Customer_Postal_Code',
+        'Customer_City',
+        'JobCollection_Platform',
+        'JobCollection_Estimate_Reschedule_Setter',
+        'JobCollection_Estimate_Reschedule_Creation_Date',
+        'JobCollection_Customer_Record_Addition_Type',
+        'JobCollection_Campaign_Name',
+        'JobCollection_Form',
+    ];
+
+    /**
+     * Same projection as the dashboard list plus `Customer_Address` for CSV export.
+     *
+     * @var string[]
+     */
+    private const EXPORT_SELECT_FIELDS = [
+        '_id',
+        'Phone_Flag',
+        'JobCollection_Customer_Full_Name',
+        'JobCollection_Customer_Phone',
+        'JobCollection_Brand',
+        'JobCollection_Reception_Date',
+        'JobCollection_Customer_Message',
+        'JobCollection_Customer_Image_Link',
+        'JobCollection_Job_Stage',
+        'JobCollection_Job_Status',
+        'JobCollection_Job_Substatus',
+        'JobCollection_Job_Last_Update',
+        'JobCollection_Job_Last_Update_User',
+        'JobCollection_Audio_Data',
+        'JobCollection_Setter_Comments',
+        'JobCollection_Closer_Comments',
+        'JobCollection_Office_Comments',
+        'JobCollection_Estimate_Scheduling_Start_TimeZulu',
+        'JobCollection_Follow_up_Boolean',
+        'JobCollection_Assigned_Follow_Up',
+        'JobCollection_Follow_up_Date',
+        'JobCollection_Job_Setter_Full_Name',
+        'JobCollection_Estimate_Schedule_Calendar',
+        'JobCollection_Job_Closer_Full_Name',
+        'JobCollection_Job_Admin_Full_Name',
+        'JobCollection_Estimate',
+        'JobCollection_Estimate_Price',
+        'JobCollection_Job',
+        'JobCollection_Job_Admin_Assigned_Date',
+        'JobCollection_Sell_Date',
+        'JobCollection_Jobs_Date',
+        'JobCollection_Estimate_Type',
+        'JobCollection_Estimate_Condition',
+        'JobCollection_Estimate_Scheduling_Creation_Date',
+        'JobCollection_Estimate_Status',
+        'JobCollection_Customer_Type',
+        'JobCollection_Deposit_Collection_Boolean',
+        'JobCollection_Deposit_Collected_User',
+        'JobCollection_Deposit_Collection_Date',
+        'JobCollection_Deposit_Payment_Method',
+        'JobCollection_Deposit_Amount',
+        'JobCollection_Customer_Email',
+        'Customer_Postal_Code',
+        'Customer_City',
+        'Customer_Address',
+        'JobCollection_Platform',
+        'JobCollection_Estimate_Reschedule_Setter',
+        'JobCollection_Estimate_Reschedule_Creation_Date',
+        'JobCollection_Customer_Record_Addition_Type',
+        'JobCollection_Campaign_Name',
+        'JobCollection_Form',
+    ];
+
+    /**
+     * Column order and labels match marluapp `ExportsSalesDashboard.php`.
+     *
+     * @var string[]
+     */
+    private const EXPORT_CSV_HEADERS = [
+        'Customer Name',
+        'Phone',
+        'Brand',
+        'Reception Date',
+        'Customer Message',
+        'Sell Stage',
+        'Sell Status',
+        'Sell Substatus',
+        'Last S-S-S Update',
+        'Last S-S-S Update By',
+        'Setter Comments',
+        'Closer Comments',
+        'Office Comments',
+        'Estimate Date',
+        'Follow-up',
+        'Assigned To Follow-up',
+        'Follow-up Date',
+        'Setter',
+        'Scheduled in Calendar Of',
+        'Closer',
+        'Admin',
+        'Estimate Versions',
+        'Estimate',
+        'Booked',
+        'Deposits',
+        'Discounts',
+        'Upsells',
+        'Invoiced',
+        'Total Paid',
+        'Due',
+        'Admin Assignation',
+        'Sell Date',
+        'Job\'s Date',
+        'Estimate Type',
+        'Scheduling Condition',
+        'Estimate Creation Date',
+        'Estimates Scheduling Status',
+        'Customer Type',
+        'Deposit Collection',
+        'Email',
+        'Postal Code',
+        'City',
+        'Customer Address',
+        'Platform',
+        'Reschedule - Setter',
+        'Reschedule - Creation Date',
+        'Customer Record Addition Type',
+        'Campaign',
+        'Form',
+        'Customer Record URL',
+    ];
+
     /** @var string[] */
     private const SEARCH_FIELDS = [
         'JobCollection_Customer_Full_Name',
@@ -51,10 +226,21 @@ class SalesDashboardController extends Controller
 
         $query = $this->buildFilteredQuery($request);
 
+        /*
+         * Sort must be index-backed or MongoDB can exceed the ~32MB in-memory sort limit
+         * (often when jumping to the last page: large skip + sort). Run once:
+         * `php artisan sales:create-dashboard-indexes`
+         */
         $paginator = $query
+            ->select(self::DASHBOARD_LIST_FIELDS)
             ->orderBy('JobCollection_Reception_Date', 'desc')
             ->orderBy('JobCollection_Customer_Full_Name', 'desc')
             ->paginate($perPage);
+
+        foreach ($paginator->items() as $item) {
+            $flg = JobsDatabaseCollection::where('JobCollection_Customer_Phone', $item->JobCollection_Customer_Phone)->count() > 1;
+            $item->Phone_Flag = $flg;
+        }
 
         return response()->json($paginator);
     }
@@ -68,44 +254,135 @@ class SalesDashboardController extends Controller
 
         $query = $this->buildFilteredQuery($request);
         $rows = $query
+            ->select(self::EXPORT_SELECT_FIELDS)
             ->orderBy('JobCollection_Reception_Date', 'desc')
+            ->orderBy('JobCollection_Customer_Full_Name', 'desc')
             ->limit(5000)
             ->get();
 
-        $headers = [
-            'Customer Name',
-            'Phone',
-            'Brand',
-            'Reception Date',
-            'Customer Message',
-            'Sell Stage',
-            'Sell Status',
-            'Sell Substatus',
-            'Last S-S-S Update',
-            'Last Update By',
-        ];
-
-        return response()->streamDownload(function () use ($rows, $headers) {
+        return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, $headers);
+            fputcsv($out, self::EXPORT_CSV_HEADERS);
             foreach ($rows as $row) {
-                fputcsv($out, [
-                    $row->JobCollection_Customer_Full_Name ?? '',
-                    $row->JobCollection_Customer_Phone ?? '',
-                    $row->JobCollection_Brand ?? '',
-                    $row->JobCollection_Reception_Date ?? '',
-                    $row->JobCollection_Customer_Message ?? '',
-                    $row->JobCollection_Job_Stage ?? '',
-                    $row->JobCollection_Job_Status ?? '',
-                    $row->JobCollection_Job_Substatus ?? '',
-                    $row->JobCollection_Job_Last_Update ?? '',
-                    $row->JobCollection_Job_Last_Update_User ?? '',
-                ]);
+                fputcsv($out, $this->mapRowToSalesExport($row));
             }
             fclose($out);
         }, 'sales-dashboard.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * Row values aligned with marluapp `ExportsSalesDashboard::array()` data rows.
+     *
+     * @param  mixed  $row
+     * @return array<int, string|int|float|null>
+     */
+    private function mapRowToSalesExport($row): array
+    {
+        $estimateDate = '';
+        if (isset($row->JobCollection_Estimate_Scheduling_Start_TimeZulu)) {
+            $estimateDate = substr(str_replace('T', ' ', (string) $row->JobCollection_Estimate_Scheduling_Start_TimeZulu), 0, 16);
+        }
+
+        $depositCollection = '';
+        if (isset($row->JobCollection_Deposit_Collection_Boolean) && $row->JobCollection_Deposit_Collection_Boolean === 'Yes') {
+            $depositCollection = ($row->JobCollection_Deposit_Collected_User ?? '') . ' | '
+                . ($row->JobCollection_Deposit_Collection_Date ?? '') . ' | '
+                . ($row->JobCollection_Deposit_Payment_Method ?? '') . ' | '
+                . ($row->JobCollection_Deposit_Amount ?? '');
+        }
+
+        $estimateVersions = '';
+        if (isset($row->JobCollection_Estimate)) {
+            $est = $row->JobCollection_Estimate;
+            $estArr = is_array($est) ? $est : (array) $est;
+            $info = $estArr['JobCollection_Estimate_Information'] ?? null;
+            if (is_array($info)) {
+                $estimateVersions = (string) count($info);
+            }
+        }
+
+        $job = $row->JobCollection_Job ?? null;
+        $jobArr = [];
+        if (is_array($job)) {
+            $jobArr = $job;
+        } elseif (is_object($job)) {
+            $jobArr = (array) $job;
+        }
+
+        $jobMoney = static function (string $key) use ($jobArr): string {
+            if (!array_key_exists($key, $jobArr) || $jobArr[$key] === null || $jobArr[$key] === '') {
+                return '';
+            }
+
+            return number_format((float) $jobArr[$key], 2);
+        };
+
+        $estimatePrice = '';
+        if (isset($row->JobCollection_Estimate_Price)) {
+            $estimatePrice = number_format((float) $row->JobCollection_Estimate_Price, 2);
+        }
+
+        $id = $row->getKey();
+        $idStr = $id !== null ? (string) $id : '';
+        $base = rtrim((string) env('FRONTEND_URL', config('app.url')), '/');
+        $recordUrl = $base !== '' && $idStr !== ''
+            ? $base . '/sales/edit?id=' . rawurlencode($idStr)
+            : '';
+
+        return [
+            $row->JobCollection_Customer_Full_Name ?? '',
+            $row->JobCollection_Customer_Phone ?? '',
+            $row->JobCollection_Brand ?? '',
+            $row->JobCollection_Reception_Date ?? '',
+            $row->JobCollection_Customer_Message ?? '',
+            $row->JobCollection_Job_Stage ?? '',
+            $row->JobCollection_Job_Status ?? '',
+            isset($row->JobCollection_Job_Substatus) ? $row->JobCollection_Job_Substatus : '',
+            $row->JobCollection_Job_Last_Update ?? '',
+            $row->JobCollection_Job_Last_Update_User ?? 'Unknown User',
+            $row->JobCollection_Setter_Comments ?? '',
+            $row->JobCollection_Closer_Comments ?? '',
+            $row->JobCollection_Office_Comments ?? '',
+            $estimateDate,
+            $row->JobCollection_Follow_up_Boolean ?? '',
+            isset($row->JobCollection_Assigned_Follow_Up) ? $row->JobCollection_Assigned_Follow_Up : '',
+            isset($row->JobCollection_Follow_up_Date) ? $row->JobCollection_Follow_up_Date : '',
+            isset($row->JobCollection_Job_Setter_Full_Name) ? $row->JobCollection_Job_Setter_Full_Name : 'Not Assigned',
+            isset($row->JobCollection_Estimate_Schedule_Calendar) ? $row->JobCollection_Estimate_Schedule_Calendar : '',
+            isset($row->JobCollection_Job_Closer_Full_Name) ? $row->JobCollection_Job_Closer_Full_Name : 'Not Assigned',
+            isset($row->JobCollection_Job_Admin_Full_Name) ? $row->JobCollection_Job_Admin_Full_Name : 'Not Assigned',
+            $estimateVersions,
+            $estimatePrice,
+            $jobMoney('Job_Booked'),
+            $jobMoney('Job_Deposits_Subtotal'),
+            $jobMoney('Job_Discounts'),
+            $jobMoney('Job_Upsells'),
+            $jobMoney('Job_Subtotal_Less_Discounts'),
+            $jobMoney('Job_Overall_Subtotal_Payments'),
+            $jobMoney('Job_Pending_Subtotal_Balance'),
+            isset($row->JobCollection_Job_Admin_Assigned_Date) ? $row->JobCollection_Job_Admin_Assigned_Date : '',
+            isset($row->JobCollection_Sell_Date) ? $row->JobCollection_Sell_Date : '',
+            isset($row->JobCollection_Jobs_Date) ? $row->JobCollection_Jobs_Date : '',
+            isset($row->JobCollection_Estimate_Type) ? $row->JobCollection_Estimate_Type : '',
+            isset($row->JobCollection_Estimate_Condition) ? $row->JobCollection_Estimate_Condition : '',
+            isset($row->JobCollection_Estimate_Scheduling_Creation_Date) ? $row->JobCollection_Estimate_Scheduling_Creation_Date : '',
+            isset($row->JobCollection_Estimate_Status) ? $row->JobCollection_Estimate_Status : 'Not Done',
+            isset($row->JobCollection_Customer_Type) ? $row->JobCollection_Customer_Type : '',
+            $depositCollection,
+            isset($row->JobCollection_Customer_Email) ? $row->JobCollection_Customer_Email : '',
+            isset($row->Customer_Postal_Code) ? $row->Customer_Postal_Code : '',
+            isset($row->Customer_City) ? $row->Customer_City : '',
+            isset($row->Customer_Address) ? $row->Customer_Address : '',
+            isset($row->JobCollection_Platform) ? $row->JobCollection_Platform : '',
+            isset($row->JobCollection_Estimate_Reschedule_Setter) ? $row->JobCollection_Estimate_Reschedule_Setter : '',
+            isset($row->JobCollection_Estimate_Reschedule_Creation_Date) ? $row->JobCollection_Estimate_Reschedule_Creation_Date : '',
+            isset($row->JobCollection_Customer_Record_Addition_Type) ? $row->JobCollection_Customer_Record_Addition_Type : 'Not Defined',
+            isset($row->JobCollection_Campaign_Name) ? $row->JobCollection_Campaign_Name : '',
+            isset($row->JobCollection_Form) ? $row->JobCollection_Form : '',
+            $recordUrl,
+        ];
     }
 
     public function assignSetter(Request $request)
@@ -135,6 +412,75 @@ class SalesDashboardController extends Controller
         }
 
         return response()->json(['updated' => $updated]);
+    }
+
+    /**
+     * Bulk update jobs (legacy: POST /api/bulk_action). Updates by explicit ids, or by dashboard filter when ids is empty.
+     */
+    public function bulkAction(Request $request)
+    {
+        $auth = $this->requireAuth($request);
+        if ($auth) {
+            return $auth;
+        }
+
+        $data = $request->validate([
+            'ids' => 'nullable|array',
+            'ids.*' => 'string',
+            'fields' => 'required|array|min:1',
+            'fields.*' => 'nullable|string|max:2000',
+            'filter_query' => 'nullable|array',
+        ]);
+
+        $allowed = [
+            'JobCollection_Job_Setter_Full_Name',
+            'JobCollection_Job_Closer_Full_Name',
+            'JobCollection_Job_Admin_Full_Name',
+            'JobCollection_Job_Stage',
+            'JobCollection_Job_Status',
+            'JobCollection_Job_Substatus',
+        ];
+
+        $fields = [];
+        foreach ($data['fields'] as $key => $value) {
+            if (!in_array($key, $allowed, true)) {
+                continue;
+            }
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $fields[$key] = $value;
+        }
+
+        if ($fields === []) {
+            return response()->json(['message' => 'No valid fields to update'], 422);
+        }
+
+        $ids = $data['ids'] ?? [];
+        if (is_array($ids) && count($ids) > 0) {
+            $updated = 0;
+            foreach ($ids as $id) {
+                try {
+                    $oid = new ObjectId($id);
+                } catch (\Throwable $e) {
+                    continue;
+                }
+                $updated += (int) JobsDatabaseCollection::where('_id', $oid)->update($fields);
+            }
+
+            return response()->json(['updated' => $updated]);
+        }
+
+        $filterQuery = $data['filter_query'] ?? [];
+        if (!is_array($filterQuery) || $filterQuery === []) {
+            return response()->json(['message' => 'filter_query is required when ids is empty'], 422);
+        }
+
+        $sub = Request::create('', 'GET', $filterQuery);
+        $query = $this->buildFilteredQuery($sub);
+        $updated = $query->update($fields);
+
+        return response()->json(['updated' => (int) $updated]);
     }
 
     private function requireAuth(Request $request): ?\Illuminate\Http\JsonResponse
@@ -369,6 +715,30 @@ class SalesDashboardController extends Controller
             if ($tmp !== []) {
                 $filter[] = ['JobCollection_Estimate_Condition', $tmp];
             }
+        }
+        if ($request->filled('rsetter')) {
+            $tmp = $comma($request->query('rsetter'));
+            if ($tmp !== []) {
+                $filter[] = ['JobCollection_Estimate_Reschedule_Setter', $tmp];
+            }
+        }
+        if ($request->filled('caddition')) {
+            $tmp = $comma($request->query('caddition'));
+            if ($tmp !== []) {
+                $filter[] = ['JobCollection_Customer_Record_Addition_Type', $tmp];
+            }
+        }
+        if ($request->filled('scomment')) {
+            $filter[] = ['JobCollection_Setter_Comments', 'like', '%' . (string) $request->query('scomment') . '%'];
+        }
+        if ($request->filled('ccomment')) {
+            $filter[] = ['JobCollection_Closer_Comments', 'like', '%' . (string) $request->query('ccomment') . '%'];
+        }
+        if ($request->filled('ocomment')) {
+            $filter[] = ['JobCollection_Office_Comments', 'like', '%' . (string) $request->query('ocomment') . '%'];
+        }
+        if ($request->filled('job_tags')) {
+            $filter[] = ['JobCollection_Job_Tags', 'like', '%' . (string) $request->query('job_tags') . '%'];
         }
 
         return $filter;
