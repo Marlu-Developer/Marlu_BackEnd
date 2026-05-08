@@ -1,8 +1,8 @@
 {
     "name": "laravel/laravel",
     "type": "project",
-    "description": "The Laravel Framework.",
-    "keywords": ["framework", "laravel"],
+    "description": "Marlu API (Laravel + MongoDB + JWT).",
+    "keywords": ["framework", "laravel", "marlu", "api"],
     "license": "MIT",
     "require": {
         "php": "^8.0.2",
@@ -11,7 +11,9 @@
         "laravel/framework": "^9.19",
         "laravel/sanctum": "^3.0",
         "laravel/tinker": "^2.7",
-        "mongodb/mongodb": "^1.11"
+        "mongodb/mongodb": "^1.11",
+        "php-open-source-saver/jwt-auth": "^2.2",
+        "spatie/laravel-permission": "^5.10"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",

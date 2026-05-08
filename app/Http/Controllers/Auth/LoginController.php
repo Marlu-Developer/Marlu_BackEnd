@@ -3,44 +3,51 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\EmployeesDatabaseCollection;
-use Session;
+use App\Http\Requests\Auth\SignInRequest;
+use App\Services\Auth\AuthService;
+use Illuminate\Http\JsonResponse;
 
 class LoginController extends Controller
 {
-    public function Me(Request $request) {
-        
+    public function __construct(private AuthService $auth)
+    {
     }
 
-    /**
-     * Login the user
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function SignIn(Request $request) {
-        $username = $request->username;
-        $password = $request->password;
-        $user = EmployeesDatabaseCollection::where('Employee_User_Login', $username)->first();
+    public function signIn(SignInRequest $request): JsonResponse
+    {
+        $payload = $this->auth->login(
+            (string) $request->validated('username'),
+            (string) $request->validated('password')
+        );
 
+        if (!$payload) {
+            return response()->json([
+                'message' => 'Invalid username or password',
+                'code' => 'invalid_credentials',
+            ], 401);
+        }
+
+        return response()->json(['data' => $payload]);
+    }
+
+    public function me(): JsonResponse
+    {
+        $user = $this->auth->me();
         if (!$user) {
-            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+            return response()->json(['message' => 'Unauthenticated', 'code' => 'unauthenticated'], 401);
         }
-        if ($user->Employee_Password !== md5($password)) {
-            return response()->json(['success' => false, 'message' => 'Invalid username or password'], 401);
-        }
-        
-        return response()->json([
-            'success' => true,
-            // add more fields if your frontend expects them
-            'id' => $user->Employee_ID,
-            '_id' => $user->_id,
-            'name' => $user->Employee_Full_Name,
-            'email' => $user->Employee_Email,
-            'phone' => $user->Employee_Phone_Number,
-            'image' => $user->Employee_Photo,
-            'type' => $user->Employee_User_Type,
-            'subType' => $user->Employee_User_SubType,
-        ]);
+        return response()->json(['data' => $user]);
+    }
+
+    public function refresh(): JsonResponse
+    {
+        $payload = $this->auth->refresh();
+        return response()->json(['data' => $payload]);
+    }
+
+    public function logout(): JsonResponse
+    {
+        $this->auth->logout();
+        return response()->json(['data' => ['ok' => true]]);
     }
 }

@@ -2,60 +2,37 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuthUser;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
+use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 class Controller extends BaseController
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
-    // Validate token (frontend sends `Authorization: Bearer <jwt>`)
-    public function validateToken($token) {
-        if (is_string($token) && strncmp($token, 'Bearer ', 7) === 0) {
-            $token = substr($token, 7);
+    /**
+     * Resolve the currently authenticated AuthUser (Mongo employee record).
+     * Returns null if no valid token is present (rare under jwt middleware).
+     */
+    protected function authUser(): ?AuthUser
+    {
+        $user = JWTAuth::user();
+        return $user instanceof AuthUser ? $user : null;
+    }
+
+    /**
+     * Resolve the JWT custom claims for the current request.
+     */
+    protected function authClaims(): array
+    {
+        try {
+            $payload = JWTAuth::parseToken()->getPayload();
+            return $payload->toArray();
+        } catch (\Throwable $e) {
+            return [];
         }
-
-        $tmp = explode('.', $token);
-
-        if (count($tmp) < 2) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid token!',
-            ], 401);
-        }
-
-        $header = $tmp[0];
-        if (!$header) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid token!',
-            ], 401);
-        }
-
-        $signature = $tmp[2];
-        if (!$signature || $signature !== 'dummy-signature') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid token!',
-            ], 401);
-        }
-
-        $base64Url = $tmp[1];
-        $base64 = str_replace('-', '+', str_replace('_', '/', $base64Url));
-        $decoded = json_decode(base64_decode($base64), true);
-
-        if (!$decoded || !isset($decoded['exp'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid token!',
-            ], 401);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Valid token!',
-        ], 200);
     }
 }

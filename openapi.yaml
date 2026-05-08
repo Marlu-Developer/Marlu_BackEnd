@@ -1,0 +1,191 @@
+openapi: 3.0.3
+info:
+  title: Marlu API
+  version: '1.0.0'
+  description: |
+    Marlu API replaces the legacy `marluapp` (Laravel 9 + Blade + Vue 3 CDN).
+    All endpoints are versioned under `/api/v1`. Authentication uses real JWT
+    (HS256, 60-minute access tokens, refresh tokens via dedicated endpoint).
+servers:
+  - url: '{baseUrl}/api/v1'
+    variables:
+      baseUrl:
+        default: http://localhost
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        code: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+    AuthUser:
+      type: object
+      properties:
+        _id: { type: string }
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        login: { type: string }
+        type: { type: string }
+        subType: { type: string }
+        role: { type: string }
+        homePage: { type: string }
+    SignInRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string }
+    AuthPayload:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string }
+        expires_in: { type: integer }
+        user: { $ref: '#/components/schemas/AuthUser' }
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        '200': { description: ok }
+  /auth/sign-in:
+    post:
+      summary: Sign in (rate-limited)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignInRequest' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/AuthPayload' }
+        '401': { description: invalid credentials }
+        '422': { description: validation error }
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      responses:
+        '200': { description: ok }
+        '401': { description: token invalid/expired }
+  /auth/me:
+    get:
+      summary: Current user
+      responses:
+        '200': { description: ok }
+        '401': { description: unauthenticated }
+  /auth/logout:
+    post:
+      summary: Invalidate current token
+      responses:
+        '200': { description: ok }
+  /employees:
+    get:
+      summary: List employees (active + inactive lists)
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        '200': { description: ok }
+    post:
+      summary: Create employee
+      responses:
+        '201': { description: created }
+  /employees/permits-dashboard:
+    get:
+      summary: Permissions dashboard payload
+      responses:
+        '200': { description: ok }
+  /employees/permissions/employee:
+    post:
+      summary: Update a single employee permission
+      responses:
+        '200': { description: ok }
+  /employees/permissions/permit:
+    post:
+      summary: Update a single permit-template permission
+      responses:
+        '200': { description: ok }
+  /employees/permissions/reset:
+    post:
+      summary: Reset employee permissions to type defaults
+      responses:
+        '200': { description: ok }
+  /sales/dashboard:
+    get:
+      summary: Sales dashboard (paginated)
+      responses:
+        '200': { description: ok }
+  /sales/dashboard/export:
+    get:
+      summary: CSV export
+      responses:
+        '200':
+          description: ok
+          content:
+            text/csv: {}
+  /sales/dashboard/assign-setter:
+    post:
+      summary: Bulk assign setter (bulkWrite)
+      responses:
+        '200': { description: ok }
+  /sales/dashboard/bulk-action:
+    post:
+      summary: Bulk update fields (bulkWrite or filtered query)
+      responses:
+        '200': { description: ok }
+  /schedules/by-technician:    { get: { responses: { '200': { description: ok } } } }
+  /schedules/by-closer:        { get: { responses: { '200': { description: ok } } } }
+  /schedules/all-technicians:  { get: { responses: { '200': { description: ok } } } }
+  /schedules/all-closers:      { get: { responses: { '200': { description: ok } } } }
+  /schedules/modifications:    { get: { responses: { '200': { description: ok } } } }
+  /kpis/setters:               { get: { responses: { '200': { description: ok } } } }
+  /kpis/closers:               { get: { responses: { '200': { description: ok } } } }
+  /kpis/users-activity:        { get: { responses: { '200': { description: ok } } } }
+  /maps/os-estimates:          { get: { responses: { '200': { description: ok } } } }
+  /estimates:                  { get: { responses: { '200': { description: ok } } }, post: { responses: { '201': { description: created } } } }
+  /jobs/dashboard:             { get: { responses: { '200': { description: ok } } } }
+  /jobs/layout:                { get: { responses: { '200': { description: ok } } }, patch: { responses: { '200': { description: ok } } } }
+  /invoices:                   { get: { responses: { '200': { description: ok } } }, post: { responses: { '201': { description: created } } } }
+  /mentions/received:          { get: { responses: { '200': { description: ok } } } }
+  /mentions/sent:              { get: { responses: { '200': { description: ok } } } }
+  /price-book:                 { get: { responses: { '200': { description: ok } } } }
+  /price-book/categories:      { get: { responses: { '200': { description: ok } } } }
+  /price-book/import:          { post: { responses: { '200': { description: ok } } } }
+  /price-book/export:          { get: { responses: { '200': { description: ok } } } }
+  /templates/{kind}:
+    get:    { responses: { '200': { description: ok } } }
+    patch:  { responses: { '200': { description: ok } } }
+  /others/webhooks:            { get: { responses: { '200': { description: ok } } } }
+  /others/apis:                { get: { responses: { '200': { description: ok } } } }
+  /others/company-profile:     { get: { responses: { '200': { description: ok } } }, patch: { responses: { '200': { description: ok } } } }
+  /others/cron-jobs:           { get: { responses: { '200': { description: ok } } } }
+  /others/database-details:    { get: { responses: { '200': { description: ok } } } }
+  /others/justcall/proxy:      { post: { responses: { '200': { description: ok } } } }
+  /admin/users:                { get: { responses: { '200': { description: ok } } } }
+  /admin/users/reset-password: { post: { responses: { '200': { description: ok } } } }
+  /admin/analytics/login:      { get: { responses: { '200': { description: ok } } } }
+  /wages/dashboard:            { get: { responses: { '200': { description: ok } } } }
+  /wages/export:               { get: { responses: { '200': { description: ok } } } }

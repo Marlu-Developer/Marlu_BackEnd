@@ -1,33 +1,30 @@
 <?php
 
-return [
+// Prefer CORS_ALLOWED_ORIGINS; otherwise FRONTEND_URL; otherwise local dev defaults.
+// Empty allowed_origins means Laravel sends no Access-Control-Allow-Origin → browser CORS failure.
+$rawOrigins = trim((string) env('CORS_ALLOWED_ORIGINS', ''));
+if ($rawOrigins === '') {
+    $rawOrigins = trim((string) env('FRONTEND_URL', ''));
+}
+if ($rawOrigins === '' && env('APP_ENV') !== 'production') {
+    $rawOrigins = 'http://localhost:8083,http://127.0.0.1:8083';
+}
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-    |
-    */
+return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', $rawOrigins)))),
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => array_values(array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS_PATTERNS', ''))))),
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['Authorization', 'Content-Type', 'Accept', 'X-Requested-With', 'X-Request-Id', 'Idempotency-Key'],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['X-Request-Id'],
 
-    'max_age' => 0,
+    'max_age' => 60 * 60,
 
     'supports_credentials' => false,
 
