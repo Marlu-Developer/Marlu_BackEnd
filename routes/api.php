@@ -13,6 +13,7 @@ use App\Http\Controllers\Mentions\MentionsController;
 use App\Http\Controllers\Others\OthersController;
 use App\Http\Controllers\PriceBook\PriceBookController;
 use App\Http\Controllers\Sales\SalesDashboardController;
+use App\Http\Controllers\SalesEdit\SalesEditController;
 use App\Http\Controllers\Schedules\SchedulesController;
 use App\Http\Controllers\Templates\TemplatesController;
 use App\Http\Controllers\Wages\WagesDashboardController;
@@ -57,6 +58,17 @@ Route::prefix('v1')->group(function () {
             Route::post('dashboard/assign-setter', 'assignSetter')->name('sales.dashboard.assign-setter');
             Route::post('dashboard/bulk-action', 'bulkAction')->name('sales.dashboard.bulk-action');
         });
+
+        // Customer Record (legacy /sales/sales-edit)
+        Route::prefix('sales/edit')
+            ->controller(SalesEditController::class)
+            ->where(['id' => '[a-f0-9]{24}'])
+            ->group(function () {
+                Route::get('{id}', 'show')->name('sales.edit.show');
+                Route::patch('{id}/profile', 'updateProfile')->name('sales.edit.update-profile');
+                Route::post('{id}/lock/ping', 'lockPing')->name('sales.edit.lock.ping');
+                Route::post('{id}/lock/release', 'lockRelease')->name('sales.edit.lock.release');
+            });
 
         // Wages
         Route::prefix('wages')->controller(WagesDashboardController::class)->group(function () {
