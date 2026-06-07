@@ -1,4 +1,4 @@
 deployment:
   tasks:
-    - export DEPOLYPATH=/home/nautilus/service.marluapp.com
-    - /bin/cp -r * $DEPLOYPATH
+    - export DEPLOYPATH=/home/nautilus/service.marluapp.com
+    - /bin/cp -r * "$DEPLOYPATH"
