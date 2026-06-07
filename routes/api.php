@@ -65,7 +65,12 @@ Route::prefix('v1')->group(function () {
             ->where(['id' => '[a-f0-9]{24}'])
             ->group(function () {
                 Route::get('{id}', 'show')->name('sales.edit.show');
+                Route::get('{id}/timeline', 'timeline')->name('sales.edit.timeline');
+                Route::get('{id}/estimates', 'estimates')->name('sales.edit.estimates');
+                Route::patch('{id}/estimates', 'updateEstimates')->name('sales.edit.update-estimates');
+                Route::get('{id}/job', 'job')->name('sales.edit.job');
                 Route::patch('{id}/profile', 'updateProfile')->name('sales.edit.update-profile');
+                Route::patch('{id}/sales-marketing', 'updateSalesMarketing')->name('sales.edit.update-sales-marketing');
                 Route::post('{id}/lock/ping', 'lockPing')->name('sales.edit.lock.ping');
                 Route::post('{id}/lock/release', 'lockRelease')->name('sales.edit.lock.release');
             });
@@ -144,11 +149,19 @@ Route::prefix('v1')->group(function () {
         Route::prefix('price-book')->controller(PriceBookController::class)->group(function () {
             Route::get('/', 'index')->name('price-book.index');
             Route::get('categories', 'categories')->name('price-book.categories');
+            Route::get('estimate-structure', 'estimateStructure')->name('price-book.estimate-structure');
+            Route::get('services/{id}', 'packageServices')->name('price-book.services')->where('id', '[a-f0-9]{24}');
+            // Management page (legacy PriceBookDashboard)
+            Route::get('packages', 'packages')->name('price-book.packages');
+            Route::post('packages/delete', 'deletePackages')->name('price-book.packages.delete');
+            Route::post('services/set', 'setServices')->name('price-book.services.set');
+            Route::post('services/remove', 'removeService')->name('price-book.services.remove');
             Route::post('/', 'store')->name('price-book.store');
             Route::patch('{id}', 'update')->name('price-book.update')->where('id', '[a-f0-9]{24}');
             Route::delete('{id}', 'destroy')->name('price-book.destroy')->where('id', '[a-f0-9]{24}');
             Route::post('import', 'import')->middleware('throttle:uploads')->name('price-book.import');
             Route::get('export', 'export')->name('price-book.export');
+            Route::get('import-template', 'template')->name('price-book.template');
         });
 
         // Templates

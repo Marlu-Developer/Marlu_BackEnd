@@ -5,6 +5,7 @@ namespace App\Services\Sales;
 use App\Repositories\Sales\SalesRepository;
 use Illuminate\Http\Request;
 use Jenssegers\Mongodb\Eloquent\Builder;
+use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 /**
  * Translate sales-dashboard filter query parameters into a Mongo query.
@@ -49,6 +50,11 @@ class SalesQueryBuilder
 
         $query = $this->repo->newQuery();
 
+        // Role-based row scoping (legacy SalesDashboard@index): a Setter/Closer/Office
+        // admin only ever sees their own jobs; a General admin sees everything. This must
+        // be enforced server-side regardless of the filter params the client sends.
+        $this->applyRoleScope($query);
+
         if ($search !== '' && !$searchFlg) {
             return $this->applySearchOrGroup($query, $search);
         }
@@ -60,6 +66,63 @@ class SalesQueryBuilder
         }
 
         return $query;
+    }
+
+    /**
+     * Restrict the result set to the rows the authenticated employee is allowed to see,
+     * mirroring the legacy role branches:
+     *   - Admin / General  → no restriction (sees all)
+     *   - Admin / Office   → only jobs where they are the assigned Admin
+     *   - Seller / Setter  → only jobs where they are the assigned Setter
+     *   - Seller / Closer  → only jobs where they are the assigned Closer
+     *
+     * Note: unlike the legacy `?default=1` shortcut, this scope is NOT bypassable by a
+     * client-supplied param — that would let an Office/Setter/Closer user read every
+     * record. The "Default view" UX is a column/preset concern, not a visibility one.
+     */
+    private function applyRoleScope(Builder $query): void
+    {
+        foreach ($this->roleScopeFilter() as $field => $value) {
+            $query->where($field, $value);
+        }
+    }
+
+    /**
+     * The role restriction as a plain `[field => value]` map (empty = no restriction).
+     * Shared by the read query (applyRoleScope) and the bulk-write paths so a scoped
+     * user can never update jobs outside their scope, even with hand-crafted IDs.
+     *
+     * @return array<string, string>
+     */
+    public function roleScopeFilter(): array
+    {
+        $user = JWTAuth::user();
+        if ($user === null) {
+            return [];
+        }
+
+        $type = (string) ($user->Employee_User_Type ?? '');
+        $sub = (string) ($user->Employee_User_SubType ?? '');
+        $name = trim((string) ($user->Employee_Full_Name ?? ''));
+
+        if ($name === '') {
+            return [];
+        }
+
+        if ($type === 'Admin' && $sub === 'General') {
+            return [];
+        }
+        if ($type === 'Admin' && $sub === 'Office') {
+            return ['JobCollection_Job_Admin_Full_Name' => $name];
+        }
+        if ($type === 'Seller' && $sub === 'Setter') {
+            return ['JobCollection_Job_Setter_Full_Name' => $name];
+        }
+        if ($type === 'Seller' && $sub === 'Closer') {
+            return ['JobCollection_Job_Closer_Full_Name' => $name];
+        }
+
+        return [];
     }
 
     private function applySearchOrGroup($query, string $search): Builder

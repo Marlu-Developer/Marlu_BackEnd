@@ -74,8 +74,12 @@ class SalesRepository
 
     /**
      * Update many jobs by ObjectId in a single Mongo bulkWrite (single round-trip).
+     *
+     * @param array<string, string> $scope Optional extra match conditions (role scope) that
+     *                                      are AND-ed with the id filter, so a scoped user can
+     *                                      only ever update jobs they are allowed to see.
      */
-    public function bulkUpdateByIds(array $ids, array $fields): int
+    public function bulkUpdateByIds(array $ids, array $fields, array $scope = []): int
     {
         if ($ids === [] || $fields === []) {
             return 0;
@@ -93,9 +97,14 @@ class SalesRepository
             return 0;
         }
 
+        $filter = ['_id' => ['$in' => $oids]];
+        foreach ($scope as $field => $value) {
+            $filter[$field] = $value;
+        }
+
         $collection = JobsDatabaseCollection::raw();
         $result = $collection->updateMany(
-            ['_id' => ['$in' => $oids]],
+            $filter,
             ['$set' => $fields]
         );
 

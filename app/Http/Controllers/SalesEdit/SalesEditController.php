@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SalesEdit\LockPingRequest;
 use App\Http\Requests\SalesEdit\LockReleaseRequest;
 use App\Http\Requests\SalesEdit\UpdateCustomerProfileRequest;
+use App\Http\Requests\SalesEdit\UpdateEstimatesRequest;
+use App\Http\Requests\SalesEdit\UpdateSalesMarketingRequest;
 use App\Http\Resources\SalesEdit\CustomerRecordResource;
 use App\Services\SalesEdit\SalesEditService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +28,43 @@ class SalesEditController extends Controller
         });
     }
 
+    public function timeline(Request $request, string $id): JsonResponse
+    {
+        return $this->guard(function () use ($id) {
+            return response()->json(['data' => $this->service->timeline($id)]);
+        });
+    }
+
+    public function estimates(Request $request, string $id): JsonResponse
+    {
+        return $this->guard(function () use ($id) {
+            return response()->json(['data' => $this->service->estimates($id)]);
+        });
+    }
+
+    public function job(Request $request, string $id): JsonResponse
+    {
+        return $this->guard(function () use ($id) {
+            return response()->json(['data' => $this->service->job($id)]);
+        });
+    }
+
+    public function updateEstimates(UpdateEstimatesRequest $request, string $id): JsonResponse
+    {
+        return $this->guard(function () use ($request, $id) {
+            [$userId, $userName] = $this->actorIdentity();
+            $validated = $request->validated();
+            $result = $this->service->updateEstimates(
+                $id,
+                (array) ($validated['estimate'] ?? []),
+                $userId,
+                $userName,
+                (string) ($validated['lock_token'] ?? ''),
+            );
+            return response()->json(['data' => $result]);
+        });
+    }
+
     public function updateProfile(UpdateCustomerProfileRequest $request, string $id): JsonResponse
     {
         return $this->guard(function () use ($request, $id) {
@@ -35,6 +74,19 @@ class SalesEditController extends Controller
             unset($validated['lock_token']);
 
             $result = $this->service->updateProfile($id, $validated, $userId, $userName, $token);
+            return response()->json(['data' => $result]);
+        });
+    }
+
+    public function updateSalesMarketing(UpdateSalesMarketingRequest $request, string $id): JsonResponse
+    {
+        return $this->guard(function () use ($request, $id) {
+            [$userId, $userName] = $this->actorIdentity();
+            $validated = $request->validated();
+            $token = (string) ($validated['lock_token'] ?? '');
+            unset($validated['lock_token']);
+
+            $result = $this->service->updateSalesMarketing($id, $validated, $userId, $userName, $token);
             return response()->json(['data' => $result]);
         });
     }
