@@ -54,9 +54,16 @@ Route::prefix('v1')->group(function () {
         // Sales
         Route::prefix('sales')->controller(SalesDashboardController::class)->group(function () {
             Route::get('dashboard', 'index')->name('sales.dashboard');
+            Route::get('dashboard/sss-visible', 'sssVisible')->name('sales.dashboard.sss-visible');
             Route::get('dashboard/export', 'export')->name('sales.dashboard.export');
             Route::post('dashboard/assign-setter', 'assignSetter')->name('sales.dashboard.assign-setter');
             Route::post('dashboard/bulk-action', 'bulkAction')->name('sales.dashboard.bulk-action');
+            Route::post('dashboard/update-sss', 'updateSss')->name('sales.dashboard.update-sss');
+            Route::post('dashboard/audio', 'uploadAudio')->name('sales.dashboard.audio.upload');
+            Route::delete('dashboard/audio/{name}', 'deleteAudio')
+                ->where('name', '[0-9]{1,20}\.wav')
+                ->name('sales.dashboard.audio.delete');
+            Route::post('dashboard/voice-notes', 'updateVoiceNotes')->name('sales.dashboard.voice-notes');
         });
 
         // Customer Record (legacy /sales/sales-edit)

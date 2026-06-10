@@ -111,6 +111,26 @@ class SalesRepository
         return (int) $result->getModifiedCount();
     }
 
+    /**
+     * Replace a job's voice-note metadata array (legacy DashboardsController::updateVoiceNotes).
+     * Returns 1 if the job existed (matched), else 0.
+     */
+    public function setAudioData(string $id, array $notes): int
+    {
+        try {
+            $oid = new ObjectId($id);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+
+        $result = JobsDatabaseCollection::raw()->updateOne(
+            ['_id' => $oid],
+            ['$set' => ['JobCollection_Audio_Data' => array_values($notes)]]
+        );
+
+        return (int) $result->getMatchedCount();
+    }
+
     public function countSamePhone(?string $phone): int
     {
         if (!$phone) {

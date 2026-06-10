@@ -120,6 +120,92 @@ class SalesService
         );
     }
 
+    /** Public web dir holding voice-note .wav files, served at `${APP origin}/assets/audio/...`. */
+    private function audioDir(): string
+    {
+        return public_path('assets'.DIRECTORY_SEPARATOR.'audio');
+    }
+
+    /** Only `{timestamp}.wav` names are allowed, so a name can never escape the audio dir. */
+    private function safeAudioName(string $name): ?string
+    {
+        return preg_match('/^\d{1,20}\.wav$/', $name) === 1 ? $name : null;
+    }
+
+    /**
+     * Persist an uploaded voice-note file as assets/audio/{name} (legacy JobsController::uploadAudio).
+     */
+    public function uploadAudio(\Illuminate\Http\UploadedFile $file, string $name): bool
+    {
+        $safe = $this->safeAudioName($name);
+        if ($safe === null) {
+            return false;
+        }
+        $dir = $this->audioDir();
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $file->move($dir, $safe);
+
+        return true;
+    }
+
+    /**
+     * Delete a voice-note file by name (legacy JobsController::removeAudio).
+     */
+    public function deleteAudio(string $name): bool
+    {
+        $safe = $this->safeAudioName($name);
+        if ($safe === null) {
+            return false;
+        }
+        $path = $this->audioDir().DIRECTORY_SEPARATOR.$safe;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+
+        return true;
+    }
+
+    /**
+     * Replace a job's voice-note metadata (legacy DashboardsController::updateVoiceNotes).
+     * Each note is normalised to {Audio_Recorded_User, Audio_Recorded_Date}.
+     */
+    public function updateVoiceNotes(string $id, array $notes): int
+    {
+        $clean = [];
+        foreach ($notes as $note) {
+            if (!is_array($note)) {
+                continue;
+            }
+            $clean[] = [
+                'Audio_Recorded_User' => (string) ($note['Audio_Recorded_User'] ?? ''),
+                'Audio_Recorded_Date' => (string) ($note['Audio_Recorded_Date'] ?? ''),
+            ];
+        }
+
+        return $this->repo->setAudioData($id, $clean);
+    }
+
+    /**
+     * Update a single job's Stage/Status/Substatus (legacy saveChangedSSS). Stamps
+     * Last_Update / Last_Update_User and is role-scoped like the bulk update.
+     */
+    public function updateSss(string $id, string $stage, string $status, string $substatus, string $updaterName): int
+    {
+        return $this->repo->bulkUpdateByIds(
+            [$id],
+            [
+                'JobCollection_Job_Stage' => $stage,
+                'JobCollection_Job_Status' => $status,
+                'JobCollection_Job_Substatus' => $substatus,
+                'JobCollection_Job_Last_Update' => now()->toDateTimeString(),
+                'JobCollection_Job_Last_Update_User' => $updaterName,
+            ],
+            $this->queryBuilder->roleScopeFilter(),
+        );
+    }
+
     public function bulkAction(Request $request, array $rawFields, array $ids = [], array $filterQuery = []): int
     {
         $fields = [];

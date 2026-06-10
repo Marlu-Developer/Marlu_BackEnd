@@ -60,7 +60,13 @@ class SalesQueryBuilder
         }
 
         $this->applyRegularFilters($query, $request);
-        $this->applyStatusTriples($query, (string) $request->query('status_values', ''));
+        // The Stages (S-S-S) "Visible" list is a strict whitelist: when the client sends
+        // `status_values` (even empty) the result is limited to exactly those triples — an
+        // empty value matches nothing. When the param is absent entirely, no S-S-S filter
+        // is applied (backward compatible).
+        if ($request->has('status_values')) {
+            $this->applyStatusTriples($query, (string) $request->query('status_values', ''));
+        }
         if ($search !== '') {
             $query->where(fn ($q) => $this->applySearchOrGroup($q, $search));
         }
@@ -267,9 +273,6 @@ class SalesQueryBuilder
     private function applyStatusTriples(Builder $query, string $statusValues): void
     {
         $statusValues = trim($statusValues);
-        if ($statusValues === '') {
-            return;
-        }
 
         $triples = [];
         foreach (explode(';', $statusValues) as $item) {
@@ -283,6 +286,9 @@ class SalesQueryBuilder
             }
         }
         if ($triples === []) {
+            // Caller opted into S-S-S filtering but the whitelist is empty
+            // (everything is in "NOT Visible") → match nothing.
+            $query->whereIn('_id', []);
             return;
         }
 
